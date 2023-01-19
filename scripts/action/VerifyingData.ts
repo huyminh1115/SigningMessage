@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const Verifier = await ethers.getContractAt("Verifier", process.env.Verifier);
+  // const Verifier = await ethers.getContractAt("Verifier", process.env.Verifier);
   
 }
 

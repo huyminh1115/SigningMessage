@@ -1,9 +1,11 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import "@openzeppelin/hardhat-upgrades";
 import * as tdly from "@tenderly/hardhat-tenderly";
+
 import "dotenv/config"
 
-tdly.setup({ automaticVerifications: true });
+tdly.setup({ automaticVerifications: false });
 
 const config: HardhatUserConfig = {
   defaultNetwork: "testnet",

@@ -2,25 +2,24 @@ import { ethers } from "hardhat";
 
 async function main() {
   const scoreContract = await ethers.getContractAt("ScoreContract", process.env.ScoreContract);
-  const verifier = await ethers.getContractAt("Verifier", process.env.Verifier);
+  const leaderReward = await ethers.getContractAt("LeaderReward", process.env.LeaderReward);
 
   // Add score:
-  // await (await scoreContract.mint(process.env.GOV, 100)).wait();
+  // await (await scoreContract.mint(process.env.GOV, 2900)).wait();
 
   // Check score:
   let score = await scoreContract.balanceOf(process.env.GOV);
+  score = 5000000;
   console.log("Score: ", score);
-
-  let nounce = 1;
 
   // sign contract
   const accounts = await ethers.getSigners();
   console.log("process.env.GOV: ", process.env.GOV);
   console.log("account: ", accounts[0].address);
 
-  // user, balance, nounce
-  let values = [process.env.GOV, score, nounce];
-  let types = ['address', 'uint256', 'uint256'];
+  // user, balance
+  let values = [process.env.GOV, score];
+  let types = ['address', 'uint256'];
 
   let encodedMessage = ethers.utils.solidityPack(types, values);
   console.log("encodedMessage: ", encodedMessage);
@@ -32,9 +31,6 @@ async function main() {
   const signature = await accounts[0].signMessage(ethers.utils.arrayify(hashEncodedMessage));
   console.log("signature: ", signature);
 
-
-  let verifySuccess = await verifier.verifySignature(process.env.GOV, score, nounce, signature);
-  console.log("verify state: ", verifySuccess);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
