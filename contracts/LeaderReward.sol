@@ -1,11 +1,12 @@
-// SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: UNLICENSED
+
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "../interfaces/ICheckF0.sol";
+import "../interfaces/IReferralManager.sol";
 
 contract LeaderReward is PausableUpgradeable, OwnableUpgradeable {
     event SubmitVote(
@@ -39,7 +40,7 @@ contract LeaderReward is PausableUpgradeable, OwnableUpgradeable {
     address public severAddress;
     // owner = dev
     address public dev;
-    // ICheckF0 public checkF0Contract;
+    IReferralManager referralManager;
     ERC20Upgradeable public rewardToken;
 
     uint256 public expiredTime;
@@ -58,17 +59,27 @@ contract LeaderReward is PausableUpgradeable, OwnableUpgradeable {
     function initialize(
         address _dev,
         address _severAddress,
-        ERC20Upgradeable _rewardToken
+        ERC20Upgradeable _rewardToken,
+        IReferralManager _referralManager
     ) external initializer {
         __Ownable_init();
         dev = _dev;
         severAddress = _severAddress;
         rewardToken = _rewardToken;
+        referralManager = _referralManager;
         expiredTime = block.timestamp + 1095 days; // 3*365 = 1095 days
     }
 
     function getLastVoteId() external view returns (uint256) {
         return voteInfos.length;
+    }
+
+    function getVoteInfo(uint256 _voteId)
+        external
+        view
+        returns (VoteInfo memory)
+    {
+        return voteInfos[_voteId - 1];
     }
 
     function claimRewardAfterExpired() external {
@@ -87,18 +98,30 @@ contract LeaderReward is PausableUpgradeable, OwnableUpgradeable {
 
     // change onlyOwner sang 1 contract khác có quyền set leader, contract đó sẽ làm nhiệm vụ verify luôn
     // hoặc sau lưu danh sách leader ở 1 contract khác, rồi mình query sang check
-    function setLeader(address _leader, bool _state) external onlyOwner {
-        bool curState = isLeader[_leader];
+    function setLeader(address _newLeader, bool _state) external onlyOwner {
+        // check F0
+        require(
+            referralManager.referrerInformation(_newLeader) == address(0),
+            "Not F0"
+        );
+        bool curState = isLeader[_newLeader];
         if (curState != _state) {
             if (_state) numLeader++;
             else numLeader--;
-            isLeader[_leader] = _state;
+            isLeader[_newLeader] = _state;
         }
     }
 
     function changeDev(address _newDev) external {
         require(msg.sender == dev, "Not dev");
         dev = _newDev;
+    }
+
+    function changeReferralManager(IReferralManager _referralManager)
+        external
+        onlyOwner
+    {
+        referralManager = _referralManager;
     }
 
     function changeSeverAddres(address _severAddress) external onlyOwner {
@@ -111,7 +134,11 @@ contract LeaderReward is PausableUpgradeable, OwnableUpgradeable {
         bytes memory _signature
     ) external whenNotPaused {
         require(_verifyData(_user, _score, _signature), "Invalid data");
-        // check xem phải F0 không ?
+        // Check F0
+        require(
+            referralManager.referrerInformation(msg.sender) == address(0),
+            "Not F0"
+        );
 
         uint256 userRank = _caculateRank(_score);
         uint256 userClaimedRank = claimedRank[_user];
@@ -147,10 +174,11 @@ contract LeaderReward is PausableUpgradeable, OwnableUpgradeable {
         external
         returns (uint256)
     {
-        // check F0
-        // checkF0Contract.checkF0()
-        // Neu la F0 thi duoc tao vote
-        // dung require o day
+        // check new leader co phai F0 khong
+        require(
+            referralManager.referrerInformation(_newLeader) == address(0),
+            "Not F0"
+        );
 
         // id start từ 1
         // Nếu là leader hoặc dev thì confirm luôn
@@ -234,14 +262,6 @@ contract LeaderReward is PausableUpgradeable, OwnableUpgradeable {
         voteInfos[voteId - 1] = voteInfo;
 
         emit ExecuteVote(voteId);
-    }
-
-    function getVoteInfo(uint256 _voteId)
-        external
-        view
-        returns (VoteInfo memory)
-    {
-        return voteInfos[_voteId - 1];
     }
 
     function _verifyData(
